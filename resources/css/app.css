@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-kertas text-tinta font-body;
+  }
+}
+
+@layer utilities {
+  .ahp-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+  }
+  
+  .ahp-slider::-webkit-slider-runnable-track {
+    background: theme('colors.cyan-cetak');
+    height: 2px;
+  }
+  
+  .ahp-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    margin-top: -6px;
+    background-color: theme('colors.tinta');
+    height: 14px;
+    width: 6px;
+    border-radius: 0;
+  }
+
+  .buku-lapangan {
+    border-left: 2px solid theme('colors.karat');
+  }
+}
