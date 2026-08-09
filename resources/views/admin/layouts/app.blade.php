@@ -166,7 +166,6 @@
         <h4>SPK ADMIN</h4>
         <a href="{{ route('admin.dashboard') }}" class="{{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">Dashboard</a>
         <a href="{{ route('admin.alternatif.index') }}" class="{{ request()->routeIs('admin.alternatif.*') ? 'active' : '' }}">Alternatif Lokasi</a>
-        <a href="{{ route('admin.kriteria.index') }}" class="{{ request()->routeIs('admin.kriteria.*') ? 'active' : '' }}">Kriteria AHP</a>
         <a href="{{ route('admin.ahp_config.index') }}" class="{{ request()->routeIs('admin.ahp_config.*') ? 'active' : '' }}">Bobot AHP</a>
         <div style="padding: 24px;">
             <hr style="border-color: var(--border-color); margin: 0; transition: border-color 0.3s;">

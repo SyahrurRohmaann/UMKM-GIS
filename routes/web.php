@@ -6,7 +6,6 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\AlternatifLokasiController;
 use App\Http\Controllers\Admin\KelurahanController;
-use App\Http\Controllers\Admin\KriteriaController;
 
 Route::get('/', function () {
     return redirect()->route('map.index');
@@ -28,9 +27,6 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     
     // CRUD Kelurahan
     Route::resource('kelurahan', KelurahanController::class);
-    
-    // CRUD Kriteria (Hanya Edit biasanya, sesuai PRD)
-    Route::resource('kriteria', KriteriaController::class)->only(['index', 'edit', 'update']);
     
     // AHP Configuration for Jenis Usaha
     Route::get('ahp-config', [App\Http\Controllers\Admin\AhpConfigController::class, 'index'])->name('ahp_config.index');
