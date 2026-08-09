@@ -36,8 +36,8 @@
         .fira-code { font-family: 'Fira Code', monospace; }
 
         /* Bootstrap Overrides */
-        .btn-primary { background-color: var(--color-primary); border-color: var(--color-primary); }
-        .btn-primary:hover { background-color: var(--color-foreground); border-color: var(--color-foreground); }
+        .btn-primary, .btn-primary:active, .btn-primary:focus { background-color: var(--color-primary) !important; border-color: var(--color-primary) !important; color: #fff !important; }
+        .btn-primary:hover { background-color: var(--color-foreground) !important; border-color: var(--color-foreground) !important; color: #fff !important; }
         .btn-success { background-color: var(--color-secondary); border-color: var(--color-secondary); }
         .btn-success:hover { background-color: var(--color-primary); border-color: var(--color-primary); }
         .bg-primary { background-color: var(--color-primary) !important; }

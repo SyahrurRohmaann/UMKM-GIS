@@ -75,6 +75,19 @@
         color: var(--color-foreground);
         font-weight: 600;
     }
+    
+    /* Input & Select Focus override for Primary color */
+    .form-select:focus, .form-control:focus {
+        border-color: var(--color-primary);
+        box-shadow: 0 0 0 0.25rem rgba(5, 150, 105, 0.25);
+    }
+    
+    /* Ensure disabled button has primary tint */
+    .btn-primary:disabled {
+        background-color: var(--color-primary);
+        border-color: var(--color-primary);
+        opacity: 0.65;
+    }
 </style>
 @endpush
 
@@ -88,7 +101,7 @@
         </div>
         <div class="mb-3">
             <label class="form-label fw-semibold">Pilih Jenis Usaha</label>
-            <select class="form-select shadow-sm" id="jenisUsaha">
+            <select class="form-select shadow-sm border-primary" id="jenisUsaha" style="border-color: var(--color-primary);">
                 <option value="" selected disabled>-- Pilih --</option>
                 @foreach($jenisUsaha as $ju)
                     <option value="{{ $ju->id }}">{{ $ju->nama }}</option>
@@ -96,7 +109,7 @@
             </select>
         </div>
         
-        <button id="btnHitung" class="btn btn-primary w-100 shadow-sm" disabled>
+        <button id="btnHitung" class="btn btn-primary bg-primary w-100 shadow-sm" style="border-color: var(--color-primary);" disabled>
             <span class="spinner-border spinner-border-sm d-none me-1" id="spinHitung"></span>
             Mulai Analisis
         </button>
@@ -107,7 +120,7 @@
         <div class="step-indicator step-active">
             <div class="step-dot">2</div> Mode Pencarian
         </div>
-        <div class="card border-0 shadow-sm mb-3">
+        <div class="card border-0 shadow-sm mb-3" style="border: 1px solid var(--color-primary) !important;">
             <div class="card-body">
                 <div class="form-check mb-3">
                     <input class="form-check-input" type="radio" name="modePencarian" id="modeSistem" value="sistem" checked>
