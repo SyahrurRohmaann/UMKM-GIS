@@ -10,35 +10,32 @@ class AlternatifLokasiController extends Controller
 {
     public function index(Request $request)
     {
-        $query = DB::table('alternatif_lokasi')
-            ->join('jenis_usaha', 'alternatif_lokasi.jenis_usaha_id', '=', 'jenis_usaha.id')
-            ->join('kelurahan', 'alternatif_lokasi.kelurahan_id', '=', 'kelurahan.id')
-            ->select('alternatif_lokasi.*', 'jenis_usaha.nama as jenis_usaha', 'kelurahan.nama as kelurahan');
+        $query = \App\Models\AlternatifLokasi::with(['jenisUsaha:id,nama', 'kelurahan:id,nama']);
             
         if ($request->filled('kelurahan')) {
-            $query->where('alternatif_lokasi.kelurahan_id', $request->kelurahan);
+            $query->where('kelurahan_id', $request->kelurahan);
         }
         
         if ($request->filled('jenis_usaha')) {
-            $query->where('alternatif_lokasi.jenis_usaha_id', $request->jenis_usaha);
+            $query->where('jenis_usaha_id', $request->jenis_usaha);
         }
         
         if ($request->filled('tipe')) {
-            $query->where('alternatif_lokasi.adalah_kompetitor', $request->tipe === 'kompetitor');
+            $query->where('adalah_kompetitor', $request->tipe === 'kompetitor');
         }
 
         $lokasi = $query->orderBy('id', 'desc')->paginate(10);
         
-        $kelurahanList = DB::table('kelurahan')->get();
-        $jenisUsahaList = DB::table('jenis_usaha')->get();
+        $kelurahanList = \App\Models\Kelurahan::getCachedAll();
+        $jenisUsahaList = \App\Models\JenisUsaha::getCachedAll();
             
         return view('admin.alternatif.index', compact('lokasi', 'kelurahanList', 'jenisUsahaList'));
     }
 
     public function create()
     {
-        $jenisUsaha = DB::table('jenis_usaha')->get();
-        $kelurahan = DB::table('kelurahan')->get();
+        $jenisUsaha = \App\Models\JenisUsaha::getCachedAll();
+        $kelurahan = \App\Models\Kelurahan::getCachedAll();
         return view('admin.alternatif.create', compact('jenisUsaha', 'kelurahan'));
     }
 
@@ -55,17 +52,17 @@ class AlternatifLokasiController extends Controller
             'adalah_kompetitor' => 'required|boolean',
         ]);
 
-        DB::table('alternatif_lokasi')->insert($data);
+        \App\Models\AlternatifLokasi::create($data);
         return redirect()->route('admin.alternatif.index')->with('success', 'Lokasi berhasil ditambahkan');
     }
 
     public function edit($id)
     {
-        $lokasi = DB::table('alternatif_lokasi')->find($id);
+        $lokasi = \App\Models\AlternatifLokasi::findOrFail($id);
         if (!$lokasi) abort(404);
 
-        $jenisUsaha = DB::table('jenis_usaha')->get();
-        $kelurahan = DB::table('kelurahan')->get();
+        $jenisUsaha = \App\Models\JenisUsaha::getCachedAll();
+        $kelurahan = \App\Models\Kelurahan::getCachedAll();
         
         return view('admin.alternatif.edit', compact('lokasi', 'jenisUsaha', 'kelurahan'));
     }
@@ -83,13 +80,13 @@ class AlternatifLokasiController extends Controller
             'adalah_kompetitor' => 'required|boolean',
         ]);
 
-        DB::table('alternatif_lokasi')->where('id', $id)->update($data);
+        \App\Models\AlternatifLokasi::where('id', $id)->update($data);
         return redirect()->route('admin.alternatif.index')->with('success', 'Lokasi berhasil diupdate');
     }
 
     public function destroy($id)
     {
-        DB::table('alternatif_lokasi')->where('id', $id)->delete();
+        \App\Models\AlternatifLokasi::where('id', $id)->delete();
         return redirect()->route('admin.alternatif.index')->with('success', 'Lokasi berhasil dihapus');
     }
 }

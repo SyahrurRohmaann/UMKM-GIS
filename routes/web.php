@@ -31,4 +31,8 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     
     // CRUD Kriteria (Hanya Edit biasanya, sesuai PRD)
     Route::resource('kriteria', KriteriaController::class)->only(['index', 'edit', 'update']);
+    
+    // AHP Configuration for Jenis Usaha
+    Route::get('ahp-config', [App\Http\Controllers\Admin\AhpConfigController::class, 'index'])->name('ahp_config.index');
+    Route::post('ahp-config/save', [App\Http\Controllers\Admin\AhpConfigController::class, 'save'])->name('ahp_config.save');
 });

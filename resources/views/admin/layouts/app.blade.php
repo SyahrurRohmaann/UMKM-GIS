@@ -167,6 +167,7 @@
         <a href="{{ route('admin.dashboard') }}" class="{{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">Dashboard</a>
         <a href="{{ route('admin.alternatif.index') }}" class="{{ request()->routeIs('admin.alternatif.*') ? 'active' : '' }}">Alternatif Lokasi</a>
         <a href="{{ route('admin.kriteria.index') }}" class="{{ request()->routeIs('admin.kriteria.*') ? 'active' : '' }}">Kriteria AHP</a>
+        <a href="{{ route('admin.ahp_config.index') }}" class="{{ request()->routeIs('admin.ahp_config.*') ? 'active' : '' }}">Bobot AHP</a>
         <div style="padding: 24px;">
             <hr style="border-color: var(--border-color); margin: 0; transition: border-color 0.3s;">
         </div>
@@ -190,6 +191,12 @@
         @if(session('success'))
             <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid #3B82F6; color: #3B82F6; padding: 16px; border-radius: 8px; margin-bottom: 24px;">
                 {{ session('success') }}
+            </div>
+        @endif
+
+        @if(session('error'))
+            <div style="background: var(--danger-bg); border: 1px solid var(--danger-color); color: var(--danger-color); padding: 16px; border-radius: 8px; margin-bottom: 24px;">
+                {{ session('error') }}
             </div>
         @endif
 

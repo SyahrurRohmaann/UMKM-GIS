@@ -168,8 +168,23 @@ class AhpService
     public function hitungJumlahKompetitor(float $lat, float $lon, \Illuminate\Support\Collection $dataKompetitor, float $radiusKm = 1.0): int
     {
         $count = 0;
+        
+        $latRad = deg2rad($lat);
+        $lonRad = deg2rad($lon);
+
         foreach ($dataKompetitor as $komp) {
-            $jarak = $this->hitungJarakHaversine($lat, $lon, $komp->latitude, $komp->longitude);
+            $cLat = $komp->latitude;
+            $cLng = $komp->longitude;
+            
+            $latDelta = deg2rad($cLat) - $latRad;
+            $lonDelta = deg2rad($cLng) - $lonRad;
+            
+            $a = sin($latDelta / 2) * sin($latDelta / 2) +
+                 cos($latRad) * cos(deg2rad($cLat)) *
+                 sin($lonDelta / 2) * sin($lonDelta / 2);
+            $cVal = 2 * atan2(sqrt($a), sqrt(1 - $a));
+            $jarak = 6371 * $cVal;
+
             if ($jarak <= $radiusKm) {
                 $count++;
             }

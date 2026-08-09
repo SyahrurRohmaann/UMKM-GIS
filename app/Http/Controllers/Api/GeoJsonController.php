@@ -12,7 +12,7 @@ class GeoJsonController extends Controller
 {
     public function kelurahan(): JsonResponse
     {
-        $kelurahans = Kelurahan::all();
+        $kelurahans = \App\Models\Kelurahan::getCachedAll();
         
         $features = $kelurahans->map(function ($kelurahan) {
             return [

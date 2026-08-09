@@ -54,7 +54,7 @@ class CalculationController extends Controller
 
             // 2. Simpan Bobot Kriteria
             // Asumsi matriks urutannya sama dengan ID Kriteria
-            $kriterias = Kriteria::orderBy('id')->get();
+            $kriterias = Kriteria::getCachedAll();
             $dataKriteria = [];
             foreach ($kriterias as $index => $kriteria) {
                 BobotKriteria::create([
@@ -76,11 +76,13 @@ class CalculationController extends Controller
             // 3. Ambil data alternatif dan kompetitor sesuai jenis usaha
             $alternatifs = AlternatifLokasi::where('jenis_usaha_id', $request->jenis_usaha_id)
                                           ->where('adalah_kompetitor', false)
-                                          ->with('kelurahan')
+                                          ->with('kelurahan:id,nama,kepadatan_penduduk')
+                                          ->select('id', 'kelurahan_id', 'latitude', 'longitude', 'harga_sewa_per_tahun', 'skor_keamanan')
                                           ->get();
-
+            
             $kompetitors = AlternatifLokasi::where('jenis_usaha_id', $request->jenis_usaha_id)
                                           ->where('adalah_kompetitor', true)
+                                          ->select('latitude', 'longitude')
                                           ->get();
             
             if ($alternatifs->count() > 0) {

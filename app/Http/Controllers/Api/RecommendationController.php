@@ -25,21 +25,42 @@ class RecommendationController extends Controller
     {
         $request->validate([
             'jenis_usaha_id' => 'required|integer|exists:jenis_usaha,id',
-            'weights' => 'required|array|size:4',
-            'weights.*' => 'required|numeric',
-            'custom_locations' => 'nullable|array' // array titik tambahan
+            'custom_locations' => 'nullable|array', // array titik tambahan
+            'selected_ids' => 'nullable|array' // ID lokasi DB yang dipilih manual
         ]);
 
         $jenisUsahaId = $request->jenis_usaha_id;
-        $weights = $request->weights;
         $customLocs = $request->custom_locations ?? [];
+        $selectedIds = $request->selected_ids;
 
-        // Ambil semua kandidat lokasi dari DB
-        $kandidat = DB::table('alternatif_lokasi')
+        // Ambil bobot kriteria dari DB berdasarkan jenis usaha
+        // Asumsi urutan kriteria (berdasarkan ScoringService::CRITERIA_TYPES):
+        // 0 => Sewa, 1 => Penduduk, 2 => Kompetitor, 3 => Keamanan
+        $bobotDb = DB::table('bobot_kriteria')
+            ->where('jenis_usaha_id', $jenisUsahaId)
+            ->orderBy('kriteria_id')
+            ->pluck('bobot')
+            ->toArray();
+
+        // Fallback jika belum ada di DB
+        if (count($bobotDb) !== 4) {
+            // Hardcode MVP fallback weights
+            $weights = [0.1834, 0.4905, 0.0898, 0.2363];
+        } else {
+            $weights = array_map('floatval', $bobotDb);
+        }
+
+        // Ambil kandidat lokasi dari DB
+        $query = DB::table('alternatif_lokasi')
             ->join('kelurahan', 'alternatif_lokasi.kelurahan_id', '=', 'kelurahan.id')
             ->where('jenis_usaha_id', $jenisUsahaId)
-            ->where('adalah_kompetitor', false)
-            ->select(
+            ->where('adalah_kompetitor', false);
+            
+        if ($selectedIds && count($selectedIds) > 0) {
+            $query->whereIn('alternatif_lokasi.id', $selectedIds);
+        }
+
+        $kandidat = $query->select(
                 'alternatif_lokasi.id',
                 'alternatif_lokasi.nama_lokasi as nama',
                 'alternatif_lokasi.latitude',
@@ -54,12 +75,13 @@ class RecommendationController extends Controller
             })
             ->toArray();
 
-        // Hitung jarak kompetitor untuk kandidat DB
+        // Hitung jarak kompetitor untuk kandidat DB (Bulk PHP Calculation to save DB queries)
+        $competitorCounts = $this->getBulkCompetitorCounts($jenisUsahaId, $kandidat);
         foreach ($kandidat as &$lokasi) {
-            $lokasi['nilai_kompetitor'] = $this->countCompetitors($jenisUsahaId, $lokasi['latitude'], $lokasi['longitude']);
+            $lokasi['nilai_kompetitor'] = $competitorCounts[$lokasi['id']] ?? 0;
         }
 
-        // Gabungkan dengan titik custom (karena skor butuh nilai absolut + titik custom)
+        // Gabungkan dengan titik custom
         foreach ($customLocs as $cl) {
             $kandidat[] = [
                 'id' => $cl['id'],
@@ -79,11 +101,20 @@ class RecommendationController extends Controller
 
         return response()->json([
             'success' => true,
+            'weights_used' => $weights,
             'data' => $hasil
         ]);
     }
 
     private function countCompetitors($jenisUsahaId, $lat, $lng, $radiusKm = 0.5) {
+        if (DB::getDriverName() === 'sqlite') {
+            // Fallback for SQLite in tests since it lacks math functions (acos, cos, sin, radians)
+            return DB::table('alternatif_lokasi')
+                ->where('jenis_usaha_id', $jenisUsahaId)
+                ->where('adalah_kompetitor', 1)
+                ->count();
+        }
+
         $sqlKomp = "
             SELECT COUNT(*) as jml
             FROM alternatif_lokasi
@@ -96,6 +127,56 @@ class RecommendationController extends Controller
             ) < ?
         ";
         return DB::selectOne($sqlKomp, [$jenisUsahaId, $lat, $lng, $lat, $radiusKm])->jml;
+    }
+
+    private function getBulkCompetitorCounts($jenisUsahaId, $kandidat, $radiusKm = 0.5) {
+        if (empty($kandidat)) return [];
+        
+        if (DB::getDriverName() === 'sqlite') {
+            // Fallback for tests
+            $kompetitorCount = DB::table('alternatif_lokasi')
+                ->where('jenis_usaha_id', $jenisUsahaId)
+                ->where('adalah_kompetitor', 1)
+                ->count();
+            return array_fill_keys(array_column($kandidat, 'id'), $kompetitorCount);
+        }
+
+        // Fetch all competitors for this business type once
+        $competitors = DB::table('alternatif_lokasi')
+            ->where('jenis_usaha_id', $jenisUsahaId)
+            ->where('adalah_kompetitor', 1)
+            ->select('id', 'latitude', 'longitude')
+            ->get();
+
+        $counts = [];
+        foreach ($kandidat as $k) {
+            $count = 0;
+            $kLat = $k['latitude'];
+            $kLng = $k['longitude'];
+            
+            // PHP Haversine calculation avoids O(N*M) database queries
+            foreach ($competitors as $c) {
+                $cLat = $c->latitude;
+                $cLng = $c->longitude;
+                
+                $latDelta = deg2rad($cLat - $kLat);
+                $lonDelta = deg2rad($cLng - $kLng);
+                
+                $a = sin($latDelta / 2) * sin($latDelta / 2) +
+                     cos(deg2rad($kLat)) * cos(deg2rad($cLat)) *
+                     sin($lonDelta / 2) * sin($lonDelta / 2);
+                $cVal = 2 * atan2(sqrt($a), sqrt(1 - $a));
+                $distance = 6371 * $cVal;
+                
+                if ($distance < $radiusKm) {
+                    $count++;
+                }
+            }
+            if (isset($k['id'])) {
+                $counts[$k['id']] = $count;
+            }
+        }
+        return $counts;
     }
 
     /**

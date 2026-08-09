@@ -129,8 +129,8 @@
                     <div style="font-weight: 500;">{{ $loc->nama_lokasi }}</div>
                     <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text-secondary); margin-top: 4px;">{{ $loc->latitude }}, {{ $loc->longitude }}</div>
                 </td>
-                <td>{{ $loc->jenis_usaha }}</td>
-                <td>{{ $loc->kelurahan }}</td>
+                <td>{{ $loc->jenisUsaha->nama ?? '-' }}</td>
+                <td>{{ $loc->kelurahan->nama ?? '-' }}</td>
                 <td style="font-family: 'IBM Plex Mono', monospace;">{{ number_format($loc->harga_sewa_per_tahun, 0, ',', '.') }}</td>
                 <td>{{ $loc->skor_keamanan > 0 ? $loc->skor_keamanan : '-' }}</td>
                 <td>

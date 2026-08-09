@@ -57,41 +57,14 @@
         <div class="mb-3">
             <label class="form-label fw-bold">1. Pilih Jenis Usaha</label>
             <select class="form-select" id="jenisUsaha">
+                <option value="" selected disabled>-- Pilih --</option>
                 @foreach($jenisUsaha as $ju)
                     <option value="{{ $ju->id }}">{{ $ju->nama }}</option>
                 @endforeach
             </select>
         </div>
-
-        <div class="mb-3">
-            <label class="form-label fw-bold">2. Bobot Kriteria AHP</label>
-            <div class="card p-2 mb-2">
-                <small class="d-block mb-1">Sewa vs Kepadatan Penduduk</small>
-                <select class="form-select form-select-sm" id="ahp_sewa_penduduk">
-                    <option value="1">1 - Sama Penting</option>
-                    <option value="3">3 - Sewa Lebih Penting</option>
-                    <option value="0.333">1/3 - Penduduk Lebih Penting</option>
-                </select>
-            </div>
-            <div class="card p-2 mb-2">
-                <small class="d-block mb-1">Sewa vs Kompetitor</small>
-                <select class="form-select form-select-sm" id="ahp_sewa_komp">
-                    <option value="1">1 - Sama Penting</option>
-                    <option value="5">5 - Sewa Lebih Penting</option>
-                    <option value="0.2">1/5 - Kompetitor Lebih Penting</option>
-                </select>
-            </div>
-            <div class="card p-2 mb-3">
-                <small class="d-block mb-1">Penduduk vs Keamanan</small>
-                <select class="form-select form-select-sm" id="ahp_penduduk_keamanan">
-                    <option value="1">1 - Sama Penting</option>
-                    <option value="3">3 - Penduduk Lebih Penting</option>
-                    <option value="0.333">1/3 - Keamanan Lebih Penting</option>
-                </select>
-            </div>
-            
-            <button id="btnHitung" class="btn btn-primary w-100">Simpan Bobot & Lanjut</button>
-        </div>
+        
+        <button id="btnHitung" class="btn btn-primary w-100" disabled>Mulai Pencarian</button>
     </div>
 
     <!-- STEP 2: PILIH MODE -->
@@ -247,45 +220,29 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // --- STEP 1: Hitung Bobot AHP ---
-    $('#btnHitung').click(function() {
-        // Simulasi matrix dari input (hardcoded MVP)
-        const matrix = [
-            [1,   1/3, 2,   1/2],
-            [3,   1,   4,   2  ],
-            [0.5, 0.25, 1,  1/3],
-            [2,   0.5,  3,  1  ],
-        ];
+    $('#jenisUsaha').change(function() {
+        if ($(this).val()) {
+            $('#btnHitung').prop('disabled', false);
+        }
+    });
 
+    $('#btnHitung').click(function() {
         $.ajax({
-            url: '/api/ahp/calculate',
+            url: '/api/recommendations/generate',
             method: 'POST',
-            data: { matrix: matrix },
-            success: function(ahpRes) {
-                if(ahpRes.data.is_consistent) {
-                    $('#ahpMetrics').html(`CR: ${ahpRes.data.cr} (Konsisten)`);
-                    currentWeights = ahpRes.data.weights;
-                    
-                    // Lanjut fetch semua data berskor dari backend untuk diolah UI
-                    $.ajax({
-                        url: '/api/recommendations/generate',
-                        method: 'POST',
-                        data: {
-                            jenis_usaha_id: $('#jenisUsaha').val(),
-                            weights: currentWeights
-                        },
-                        success: function(recRes) {
-                            allScoredLocations = recRes.data;
-                            
-                            // UI Transisi
-                            $('#step1-ahp').addClass('d-none');
-                            $('#step2-mode').removeClass('d-none');
-                            $('#btnReset').removeClass('d-none');
-                        }
-                    });
-                }
+            data: {
+                jenis_usaha_id: $('#jenisUsaha').val()
+            },
+            success: function(recRes) {
+                allScoredLocations = recRes.data;
+                
+                // UI Transisi
+                $('#step1-ahp').addClass('d-none');
+                $('#step2-mode').removeClass('d-none');
+                $('#btnReset').removeClass('d-none');
             },
             error: function(err) {
-                alert(err.responseJSON?.message || 'Error perhitungan AHP');
+                alert(err.responseJSON?.message || 'Error saat memuat rekomendasi');
             }
         });
     });
@@ -422,43 +379,44 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     $('#btnProsesManual').click(function() {
-        // Tembak ulang API generate untuk menghitung skor SAW absolut dengan menyertakan titik kustom
+        // Build array of DB location IDs
+        const dbIds = selectedManualIds.filter(id => typeof id === 'number');
+        const isIncludeSystem = $('#chkIkutSistem').is(':checked');
+
+        // If system recommendation is included, we need to pass global top 3 system IDs
+        // wait, we can just send the request, but RecommendationController will only return the subset.
+        // We have `allScoredLocations` which are global scores.
+        let idsToCompare = [...dbIds];
+        
+        if (selectedManualIds.length === 1 || isIncludeSystem) {
+            // Get top 3 system locations (excluding user selected)
+            const systemLocs = allScoredLocations
+                .filter(l => !selectedManualIds.includes(l.id))
+                .slice(0, 3)
+                .map(l => l.id);
+            idsToCompare = [...idsToCompare, ...systemLocs];
+        }
+
         $.ajax({
             url: '/api/recommendations/generate',
             method: 'POST',
             data: {
                 jenis_usaha_id: $('#jenisUsaha').val(),
-                weights: currentWeights,
-                custom_locations: customLocationsData
+                custom_locations: customLocationsData,
+                selected_ids: idsToCompare
             },
             success: function(recRes) {
                 let freshScores = recRes.data;
                 
-                let displayData = [];
-                let userLocs = freshScores.filter(l => selectedManualIds.includes(l.id));
-                let systemLocs = freshScores.filter(l => !selectedManualIds.includes(l.id));
-
-                if (selectedManualIds.length === 1) {
-                    displayData = [...userLocs, ...systemLocs.slice(0, 3)];
-                } else {
-                    const ikutSistem = $('#chkIkutSistem').is(':checked');
-                    if (ikutSistem) {
-                        displayData = [...userLocs, ...systemLocs.slice(0, Math.max(1, 5 - userLocs.length))];
-                    } else {
-                        displayData = [...userLocs];
-                    }
-                }
-
-                displayData.sort((a, b) => b.skor_akhir - a.skor_akhir);
-
-                displayData = displayData.map((loc, i) => {
+                // Set flags for UI
+                freshScores = freshScores.map((loc, i) => {
                     loc.ranking_komparasi = i + 1;
                     loc.is_pilihan_user = selectedManualIds.includes(loc.id);
                     return loc;
                 });
 
                 $('#step3-manual').addClass('d-none');
-                renderHasil(displayData, true);
+                renderHasil(freshScores, true);
             }
         });
     });
