@@ -7,69 +7,129 @@
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-
-    <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     
+    <!-- Google Fonts: Fira Sans (Body) & Fira Code (Numbers/Data) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
     <style>
-        body { padding-top: 56px; overflow-x: hidden; }
+        :root {
+            --color-primary: #059669;
+            --color-secondary: #10B981;
+            --color-accent: #EA580C;
+            --color-background: #ECFDF5;
+            --color-foreground: #064E3B;
+            --color-muted: #E8F1F3;
+            --color-border: #A7F3D0;
+        }
+
+        body { 
+            font-family: 'Fira Sans', sans-serif;
+            padding-top: 56px; 
+            overflow-x: hidden; 
+            background-color: #f8f9fa;
+        }
+        
+        /* Font khusus angka/skor */
+        .fira-code { font-family: 'Fira Code', monospace; }
+
+        /* Bootstrap Overrides */
+        .btn-primary { background-color: var(--color-primary); border-color: var(--color-primary); }
+        .btn-primary:hover { background-color: var(--color-foreground); border-color: var(--color-foreground); }
+        .btn-success { background-color: var(--color-secondary); border-color: var(--color-secondary); }
+        .btn-success:hover { background-color: var(--color-primary); border-color: var(--color-primary); }
+        .bg-primary { background-color: var(--color-primary) !important; }
+        .bg-success { background-color: var(--color-secondary) !important; }
+        .text-primary { color: var(--color-primary) !important; }
+        .text-success { color: var(--color-secondary) !important; }
+        
+        .navbar-custom { background-color: var(--color-foreground) !important; }
+
         .wrapper { display: flex; width: 100%; height: calc(100vh - 56px); position: relative; }
-        .sidebar {
+        
+        /* Sidebar layout map desktop */
+        .sidebar-desktop {
             width: 350px;
             min-width: 350px;
-            background: #f8f9fa;
-            border-right: 1px solid #ddd;
+            background: white;
+            border-right: 1px solid var(--color-border);
             padding: 20px;
             overflow-y: auto;
-            transition: margin-left 0.3s ease-in-out;
-            position: relative;
+            display: none; /* hidden on mobile, block on lg */
             z-index: 1000;
         }
-        .sidebar.collapsed { margin-left: -350px; }
         
-        .map-container { flex-grow: 1; position: relative; transition: all 0.3s; z-index: 1; }
+        .map-container { flex-grow: 1; position: relative; z-index: 1; height: 100%; }
+
+        @media (min-width: 992px) {
+            .sidebar-desktop { display: block; }
+            .mobile-toggle { display: none; }
+        }
         
-        #sidebarToggle {
+        @media (max-width: 991.98px) {
+            .map-container { height: 100%; width: 100%; }
+        }
+
+        /* Loading Overlay */
+        .loading-overlay {
             position: absolute;
-            top: 50%;
-            left: 350px; /* Lebar sidebar */
-            transform: translateY(-50%);
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255,255,255,0.8);
             z-index: 9999;
-            background: white;
-            border: 1px solid #ddd;
-            border-left: none;
-            border-radius: 0 8px 8px 0;
-            padding: 15px 5px;
-            cursor: pointer;
-            box-shadow: 2px 0px 5px rgba(0,0,0,0.1);
-            transition: left 0.3s ease-in-out;
-            display: flex;
-            align-items: center;
+            display: none;
             justify-content: center;
-            color: #555;
-        }
-        #sidebarToggle:hover {
-            background-color: #f4f4f4;
-            color: #000;
-        }
-        
-        /* Ketika sidebar disembunyikan, geser tombol ke kiri ujung */
-        .sidebar.collapsed ~ #sidebarToggle {
-            left: 0;
+            align-items: center;
+            flex-direction: column;
         }
     </style>
     @stack('styles')
 </head>
 <body>
 
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom fixed-top">
         <div class="container-fluid">
+            <button class="btn btn-outline-light d-lg-none me-2 mobile-toggle" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarOffcanvas">
+                <i class="bi bi-list"></i>
+            </button>
             <a class="navbar-brand" href="#">SPK Lokasi AHP-GIS</a>
+            @auth
+            <div class="d-flex">
+                 <a href="{{ route('admin.dashboard') }}" class="btn btn-sm btn-outline-light"><i class="bi bi-speedometer2"></i> Admin</a>
+            </div>
+            @endauth
         </div>
     </nav>
 
-    <div class="wrapper"><!-- Sidebar --><div class="sidebar" id="sidebar">@yield('sidebar')</div><button id="sidebarToggle" title="Toggle Sidebar"><i class="bi bi-chevron-left" id="toggleIcon"></i></button><!-- Map View --><div class="map-container" id="mapContainer">@yield('content')</div></div>
+    <div class="wrapper">
+        <!-- Sidebar Desktop -->
+        <div class="sidebar-desktop shadow-sm" id="sidebarDesktop">
+            @yield('sidebar')
+        </div>
 
+        <!-- Sidebar Mobile (Offcanvas) -->
+        <div class="offcanvas offcanvas-start" tabindex="-1" id="sidebarOffcanvas">
+            <div class="offcanvas-header border-bottom">
+                <h5 class="offcanvas-title">Menu Panel</h5>
+                <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+            </div>
+            <div class="offcanvas-body">
+                @yield('sidebar')
+            </div>
+        </div>
+
+        <!-- Map View -->
+        <div class="map-container" id="mapContainer">
+            <div class="loading-overlay" id="mapLoading">
+                <div class="spinner-border text-primary" role="status"></div>
+                <span class="mt-2 fw-bold text-primary">Memproses Data...</span>
+            </div>
+            @yield('content')
+        </div>
+    </div>
+
+    <!-- Modal Kustom Lokasi -->
     <div class="modal fade" id="customLocModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -78,7 +138,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="small text-muted">Sistem akan otomatis menghitung jumlah kompetitor (500m) dan kepadatan penduduk dari titik ini.</p>
+                    <p class="small text-muted">Sistem otomatis hitung kompetitor (500m) & penduduk.</p>
                     <input type="hidden" id="c_lat">
                     <input type="hidden" id="c_lng">
                     <div class="mb-2">
@@ -101,40 +161,19 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                    <button type="button" class="btn btn-primary" id="btnSaveCustom">Tambahkan</button>
+                    <button type="button" class="btn btn-primary" id="btnSaveCustom">
+                        <span class="spinner-border spinner-border-sm d-none me-1" id="spinSaveCustom" role="status"></span>
+                        Tambahkan
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Scripts -->
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
-    <script>
-        $(document).ready(function() {
-            $('#sidebarToggle').click(function(e) {
-                e.preventDefault();
-                $('#sidebar').toggleClass('collapsed');
-                
-                // Ganti Icon
-                if ($('#sidebar').hasClass('collapsed')) {
-                    $('#toggleIcon').removeClass('bi-chevron-left').addClass('bi-chevron-right');
-                } else {
-                    $('#toggleIcon').removeClass('bi-chevron-right').addClass('bi-chevron-left');
-                }
-                
-                // Beri waktu animasi CSS selesai, lalu paksa Leaflet merender ulang petanya
-                setTimeout(() => {
-                    if (window.dispatchEvent) {
-                        window.dispatchEvent(new Event('resize'));
-                    }
-                }, 350); 
-            });
-        });
-    </script>
     @stack('scripts')
 </body>
 </html>
-
