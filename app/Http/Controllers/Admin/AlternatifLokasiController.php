@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Rules\WithinSumbersari;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 
 class AlternatifLokasiController extends Controller
 {
@@ -41,16 +43,7 @@ class AlternatifLokasiController extends Controller
 
     public function store(Request $request)
     {
-        $data = $request->validate([
-            'nama_lokasi' => 'required|string|max:255',
-            'jenis_usaha_id' => 'required|integer|exists:jenis_usaha,id',
-            'kelurahan_id' => 'required|integer|exists:kelurahan,id',
-            'latitude' => 'required|numeric',
-            'longitude' => 'required|numeric',
-            'harga_sewa_per_tahun' => 'required|numeric|min:0',
-            'skor_keamanan' => 'required|integer|min:0|max:4',
-            'adalah_kompetitor' => 'required|boolean',
-        ]);
+        $data = $this->validateLokasi($request);
 
         \App\Models\AlternatifLokasi::create($data);
         return redirect()->route('admin.alternatif.index')->with('success', 'Lokasi berhasil ditambahkan');
@@ -69,7 +62,18 @@ class AlternatifLokasiController extends Controller
 
     public function update(Request $request, $id)
     {
-        $data = $request->validate([
+        $data = $this->validateLokasi($request);
+
+        \App\Models\AlternatifLokasi::where('id', $id)->update($data);
+        return redirect()->route('admin.alternatif.index')->with('success', 'Lokasi berhasil diupdate');
+    }
+
+    /**
+     * Validasi data alternatif lokasi termasuk validasi spasial batas Sumbersari.
+     */
+    protected function validateLokasi(Request $request): array
+    {
+        $validator = Validator::make($request->all(), [
             'nama_lokasi' => 'required|string|max:255',
             'jenis_usaha_id' => 'required|integer|exists:jenis_usaha,id',
             'kelurahan_id' => 'required|integer|exists:kelurahan,id',
@@ -80,8 +84,19 @@ class AlternatifLokasiController extends Controller
             'adalah_kompetitor' => 'required|boolean',
         ]);
 
-        \App\Models\AlternatifLokasi::where('id', $id)->update($data);
-        return redirect()->route('admin.alternatif.index')->with('success', 'Lokasi berhasil diupdate');
+        // Validasi spasial: hanya dijalankan bila lat & lng valid secara numerik.
+        $validator->after(function ($validator) use ($request) {
+            $lat = $request->input('latitude');
+            $lng = $request->input('longitude');
+
+            if (is_numeric($lat) && is_numeric($lng)) {
+                if (! WithinSumbersari::contains((float) $lat, (float) $lng)) {
+                    $validator->errors()->add('latitude', 'Koordinat di luar batas Kecamatan Sumbersari');
+                }
+            }
+        });
+
+        return $validator->validate();
     }
 
     public function destroy($id)
