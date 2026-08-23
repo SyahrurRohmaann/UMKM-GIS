@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\LokasiPilihanUser;
+use App\Models\SesiPerhitungan;
 use App\Services\ScoringService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class RecommendationController extends Controller
 {
@@ -99,9 +102,28 @@ class RecommendationController extends Controller
         // Kalkulasi skor akhir AHP & Ranking
         $hasil = $this->scoringService->calculateFinalScores($kandidat, $weights);
 
+        // M7: Persist lokasi pilihan user hanya untuk mode komparasi manual (ada selected_ids)
+        $sesiId = null;
+        if ($selectedIds && count($selectedIds) > 0) {
+            $sesi = SesiPerhitungan::create(['session_id' => (string) Str::uuid()]);
+            $sesiId = $sesi->id;
+
+            foreach ($hasil as $lokasi) {
+                $isCustom = !empty($lokasi['is_custom']);
+                LokasiPilihanUser::create([
+                    'sesi_id' => $sesi->id,
+                    'latitude' => $lokasi['latitude'] ?? null,
+                    'longitude' => $lokasi['longitude'] ?? null,
+                    'alternatif_lokasi_id' => $isCustom ? null : ($lokasi['id'] ?? null),
+                    'skor_dihitung' => $lokasi['skor_akhir'] ?? null,
+                ]);
+            }
+        }
+
         return response()->json([
             'success' => true,
             'weights_used' => $weights,
+            'sesi_id' => $sesiId,
             'data' => $hasil
         ]);
     }

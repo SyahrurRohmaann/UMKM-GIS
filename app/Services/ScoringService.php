@@ -22,7 +22,10 @@ class ScoringService
     ];
 
     /**
-     * Hitung skor akhir menggunakan Simple Additive Weighting (SAW) berdasar bobot AHP.
+     * Hitung skor akhir menggunakan Simple Additive Weighting (SAW) dengan
+     * normalisasi Min-Max, konsisten dengan AhpService::hitungSkorAkhir dan
+     * spesifikasi PRD-03 §3.4 (rekomendasi normalisasi min-max, arah dibalik
+     * untuk kriteria cost).
      *
      * @param array $alternatives Array asosiatif lokasi dengan field: id, nilai_sewa, nilai_penduduk, nilai_kompetitor, nilai_keamanan
      * @param array $weights Bobot kriteria (eigenvector dari AHP)
@@ -34,57 +37,42 @@ class ScoringService
             return [];
         }
 
-        // 1. Cari Max & Min tiap kriteria untuk normalisasi
-        $minMax = [
-            0 => ['min' => INF, 'max' => -INF],
-            1 => ['min' => INF, 'max' => -INF],
-            2 => ['min' => INF, 'max' => -INF],
-            3 => ['min' => INF, 'max' => -INF],
+        $fields = [
+            0 => 'nilai_sewa',
+            1 => 'nilai_penduduk',
+            2 => 'nilai_kompetitor',
+            3 => 'nilai_keamanan',
         ];
 
-        foreach ($alternatives as $alt) {
-            $vals = [
-                0 => $alt['nilai_sewa'],
-                1 => $alt['nilai_penduduk'],
-                2 => $alt['nilai_kompetitor'],
-                3 => $alt['nilai_keamanan'],
-            ];
-
-            for ($i = 0; $i < 4; $i++) {
-                if ($vals[$i] < $minMax[$i]['min']) $minMax[$i]['min'] = $vals[$i];
-                if ($vals[$i] > $minMax[$i]['max']) $minMax[$i]['max'] = $vals[$i];
-            }
+        // 1. Cari Min & Max tiap kriteria untuk normalisasi min-max
+        $minMax = [];
+        for ($i = 0; $i < 4; $i++) {
+            $vals = array_map(static fn ($alt) => (float) $alt[$fields[$i]], $alternatives);
+            $minMax[$i] = ['min' => min($vals), 'max' => max($vals)];
         }
 
-        // 2. Normalisasi & Penjumlahan Skor
+        // 2. Normalisasi min-max & penjumlahan skor berbobot
         foreach ($alternatives as &$alt) {
-            $vals = [
-                0 => $alt['nilai_sewa'],
-                1 => $alt['nilai_penduduk'],
-                2 => $alt['nilai_kompetitor'],
-                3 => $alt['nilai_keamanan'],
-            ];
-
             $skorAkhir = 0;
 
             for ($i = 0; $i < 4; $i++) {
                 $isBenefit = self::CRITERIA_TYPES[$i];
+                $nilai = (float) $alt[$fields[$i]];
                 $min = $minMax[$i]['min'];
                 $max = $minMax[$i]['max'];
-                
-                // Hindari division by zero jika semua alternatif punya nilai yang sama untuk suatu kriteria
-                $normalizedValue = 0;
-                if ($max > 0 || $min > 0) {
-                    if ($isBenefit) {
-                        // Max-based normalization untuk benefit
-                        $normalizedValue = $max > 0 ? $vals[$i] / $max : 0;
-                    } else {
-                        // Min-based normalization untuk cost
-                        $normalizedValue = $vals[$i] > 0 ? $min / $vals[$i] : 0;
-                    }
-                } else if ($vals[$i] == 0 && !$isBenefit) {
-                     // Khusus nilai 0 pada kriteria cost (misal kompetitor = 0), beri skor full
-                     $normalizedValue = 1;
+                $range = $max - $min;
+
+                // Bila semua alternatif punya nilai identik (range = 0),
+                // kriteria ini tidak membedakan apa pun → beri skor netral penuh (1)
+                // agar tiap alternatif setara pada kriteria tsb (tidak bias).
+                if ($range <= 0) {
+                    $normalizedValue = 1.0;
+                } elseif ($isBenefit) {
+                    // Benefit: makin besar makin baik
+                    $normalizedValue = ($nilai - $min) / $range;
+                } else {
+                    // Cost: makin kecil makin baik (arah dibalik)
+                    $normalizedValue = ($max - $nilai) / $range;
                 }
 
                 $skorAkhir += $normalizedValue * $weights[$i];
@@ -92,9 +80,10 @@ class ScoringService
 
             $alt['skor_akhir'] = round($skorAkhir, 4);
         }
+        unset($alt);
 
         // 3. Sorting berdasar skor (Descending)
-        usort($alternatives, function($a, $b) {
+        usort($alternatives, function ($a, $b) {
             return $b['skor_akhir'] <=> $a['skor_akhir'];
         });
 
@@ -103,6 +92,7 @@ class ScoringService
         foreach ($alternatives as &$alt) {
             $alt['ranking'] = $rank++;
         }
+        unset($alt);
 
         return $alternatives;
     }

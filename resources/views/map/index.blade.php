@@ -439,7 +439,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     Padat: ${lokasi.nilai_penduduk} | Komp: ${lokasi.nilai_kompetitor}
                 </div>
                 <hr class="my-2">
-                <button class="btn btn-sm btn-outline-primary btn-buffer w-100" data-lat="${lokasi.latitude}" data-lng="${lokasi.longitude}">Radius 500m</button>
+                <div class="buffer-control fira-code" style="font-size:11px">
+                    <label class="d-block mb-1">Radius Buffer: <b><span class="buffer-radius-label">500</span> m</b></label>
+                    <input type="range" class="form-range buffer-radius-input" min="100" max="2000" step="50" value="500"
+                        data-lat="${lokasi.latitude}" data-lng="${lokasi.longitude}">
+                    <div class="mt-1">Kompetitor dalam radius: <b class="buffer-comp-count">-</b></div>
+                    <button class="btn btn-sm btn-outline-primary btn-buffer w-100 mt-1" data-lat="${lokasi.latitude}" data-lng="${lokasi.longitude}">Tampilkan Buffer</button>
+                </div>
             `, { offset: [0, -25] });
             markers.push(marker);
         });
@@ -480,11 +486,42 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    function drawBuffer(lat, lng, radius) {
+        if(bufferCircle) map.removeLayer(bufferCircle);
+        bufferCircle = L.circle([lat, lng], { color: 'var(--color-primary)', fillColor: 'var(--color-primary)', fillOpacity: 0.1, radius: radius }).addTo(map);
+        map.flyTo([lat, lng], 15);
+    }
+
+    function fetchCompetitorCount(lat, lng, radius, $label) {
+        $.ajax({
+            url: '/api/locations/competitors-radius',
+            method: 'POST',
+            data: {
+                lat: lat, lng: lng,
+                radius_meter: radius,
+                jenis_usaha_id: $('#jenisUsaha').val()
+            },
+            success: function(res) { $label.text(res.count); },
+            error: function() { $label.text('?'); }
+        });
+    }
+
+    // Slider: update label, redraw buffer if shown, refresh competitor count live
+    $(document).on('input', '.buffer-radius-input', function() {
+        const $ctrl = $(this).closest('.buffer-control');
+        const lat = $(this).data('lat'), lng = $(this).data('lng');
+        const radius = parseInt($(this).val(), 10);
+        $ctrl.find('.buffer-radius-label').text(radius);
+        if(bufferCircle) drawBuffer(lat, lng, radius);
+        fetchCompetitorCount(lat, lng, radius, $ctrl.find('.buffer-comp-count'));
+    });
+
     $(document).on('click', '.btn-buffer', function() {
         const lat = $(this).data('lat'), lng = $(this).data('lng');
-        if(bufferCircle) map.removeLayer(bufferCircle);
-        bufferCircle = L.circle([lat, lng], { color: 'var(--color-primary)', fillColor: 'var(--color-primary)', fillOpacity: 0.1, radius: 500 }).addTo(map);
-        map.flyTo([lat, lng], 15);
+        const $ctrl = $(this).closest('.buffer-control');
+        const radius = parseInt($ctrl.find('.buffer-radius-input').val(), 10) || 500;
+        drawBuffer(lat, lng, radius);
+        fetchCompetitorCount(lat, lng, radius, $ctrl.find('.buffer-comp-count'));
     });
 
     $('#btnReset').click(function() {

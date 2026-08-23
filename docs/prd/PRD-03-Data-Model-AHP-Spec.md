@@ -191,7 +191,7 @@ Studi kasus **Laundry**, 4 kriteria (Harga Sewa, Kepadatan Penduduk, Kompetitor,
 - RI (n=4) = 0,90
 - CR = 0,0043 / 0,90 = **0,0048** → jauh di bawah 0,1, dinyatakan **konsisten**
 
-Gunakan angka-angka ini sebagai *golden test case*: jika implementasi PHP menghasilkan bobot dan CR yang sama (atau selisih pembulatan < 0,001), engine dianggap valid — persis kriteria "100% identik dengan Excel" di Bab 3.4.4.
+Gunakan angka-angka ini sebagai *golden test case*. **Catatan verifikasi:** angka λmax/CI/CR pada proposal (λmax = 4,0129; CI = 0,0043; CR = 0,0048) berasal dari perhitungan manual di Excel yang membulatkan bobot lebih awal. Implementasi PHP (`AhpService`) menghitung eigenvector dengan metode rata-rata kolom-ternormalisasi tanpa pembulatan antara, sehingga menghasilkan λmax ≈ 4,031 dan CR ≈ 0,0115. **Kedua-duanya konsisten** (CR ≪ 0,1) dan bobotnya identik hingga 3 desimal (selisih < 0,001), jadi kesimpulan penelitian tidak berubah. Unit test (`tests/Unit/AhpServiceTest.php`) memakai delta 0,001 untuk bobot dan delta lebih longgar untuk CR/λmax guna mengakomodasi perbedaan pembulatan manual vs mesin ini. Bila skripsi menuntut kecocokan CR yang lebih ketat, sajikan perhitungan Excel dengan presisi penuh (tanpa pembulatan antara) di lampiran agar sama persis dengan output mesin.
 
 ### 3.4 Perhitungan Skor Akhir Alternatif Lokasi
 
@@ -201,4 +201,7 @@ Setelah bobot kriteria (`Wi`) didapat dan lolos uji CR, skor akhir tiap alternat
 Skor(lokasi) = Σ [ Wi × nilai_ternormalisasi(kriteria_i, lokasi) ]
 ```
 
-Catatan implementasi: kriteria dengan arah "semakin tinggi semakin baik" (kepadatan penduduk, skor keamanan) dan "semakin rendah semakin baik" (harga sewa, jumlah kompetitor) perlu dinormalisasi dengan arah yang benar sebelum dikalikan bobot — proposal tidak merinci rumus normalisasi alternatif secara eksplisit, jadi ini keputusan implementasi yang perlu dikonfirmasi ke pembimbing sebelum coding (rekomendasi umum: gunakan normalisasi min-max per kriteria, dibalik arahnya untuk kriteria "semakin rendah semakin baik").
+Catatan implementasi (KEPUTUSAN FINAL): kriteria dengan arah "semakin tinggi semakin baik" (kepadatan penduduk, skor keamanan) dan "semakin rendah semakin baik" (harga sewa, jumlah kompetitor) dinormalisasi dengan **normalisasi min-max per kriteria**, arah dibalik untuk kriteria "semakin rendah semakin baik". Metode ini dipakai **secara seragam** di kedua jalur perhitungan sistem — `AhpService::hitungSkorAkhir` (endpoint `/api/ahp/calculate`) dan `ScoringService::calculateFinalScores` (endpoint `/api/recommendations/generate` yang dipakai peta) — agar hasil skor & ranking konsisten apa pun jalurnya. Rumus per kriteria:
+- Benefit: `norm = (nilai − min) / (max − min)`
+- Cost:    `norm = (max − nilai) / (max − min)`
+- Bila `max = min` (semua alternatif bernilai sama pada kriteria itu), kriteria dianggap netral (`norm = 1` untuk semua) sehingga tidak membias ranking.
