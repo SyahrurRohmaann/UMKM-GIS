@@ -7,11 +7,18 @@ Lihat PRD-01 untuk konteks & scope. Modul di bawah mengikuti alur nyata pengguna
 
 ## Alur Pengguna Ringkas
 
+> **Catatan metode (penting):** Bobot kriteria pada sistem ini **tidak** diisi oleh
+> pelaku usaha (pengguna publik), melainkan diperoleh melalui **wawancara pakar/
+> pemangku kepentingan** terkait, lalu diagregasi menjadi satu matriks perbandingan
+> konsensus dan diinput oleh **Administrator** melalui modul Konfigurasi AHP
+> (lihat M3'). Pendekatan *expert-based AHP* ini dipilih karena penilaian
+> perbandingan berpasangan menuntut pemahaman domain yang memadai; validitasnya
+> dijaga oleh uji Consistency Ratio (CR < 0,1). Pelaku usaha berinteraksi mulai
+> dari pemilihan jenis usaha → melihat hasil ranking di peta → analisis spasial →
+> komparasi lokasi pribadi.
+
 ```
-[Pilih Jenis Usaha: Laundry / Kafe]
-            │
-            ▼
-[Isi Matriks Perbandingan Berpasangan (AHP, skala 1-9)]
+[ADMIN: Input Matriks Perbandingan hasil wawancara pakar (AHP, skala 1-9)]
             │
             ▼
       ┌─────────────┐
@@ -19,7 +26,12 @@ Lihat PRD-01 untuk konteks & scope. Modul di bawah mengikuti alur nyata pengguna
       └─────────────┘
             │ CR < 0,1
             ▼
-[Sistem hitung skor akhir & ranking tiap alternatif lokasi]
+   [Bobot kriteria tersimpan per jenis usaha]
+· · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · · ·
+[PELAKU USAHA: Pilih Jenis Usaha: Laundry / Kafe]
+            │
+            ▼
+[Sistem hitung skor akhir & ranking tiap alternatif lokasi memakai bobot tersimpan]
             │
             ▼
 [Tampilkan peta interaktif: marker berwarna/berurutan sesuai skor]
@@ -53,37 +65,41 @@ Lihat PRD-01 untuk konteks & scope. Modul di bawah mengikuti alur nyata pengguna
 
 **Kriteria Penerimaan:**
 - [ ] Halaman awal menampilkan pilihan jenis usaha sebagai langkah wajib pertama sebelum fitur lain aktif.
-- [ ] Pilihan jenis usaha menentukan: set alternatif lokasi yang ditampilkan, definisi "kompetitor sejenis" yang dihitung, dan bobot kriteria yang dipakai pada perhitungan AHP.
-- [ ] Pengguna dapat mengganti jenis usaha kapan saja, dan sistem me-reset progres input AHP terkait (dengan konfirmasi agar tidak hilang tanpa sengaja).
+- [ ] Pilihan jenis usaha menentukan: set alternatif lokasi yang ditampilkan, definisi "kompetitor sejenis" yang dihitung, dan bobot kriteria (hasil wawancara pakar yang tersimpan) yang dipakai pada perhitungan skor.
+- [ ] Pengguna dapat mengganti jenis usaha kapan saja, dan sistem me-reset progres analisis terkait.
 
 **Prioritas:** Must Have.
 
 ---
 
-## M3. Input Preferensi Kriteria — Matriks Perbandingan Berpasangan AHP
+## M3'. Input Matriks Perbandingan AHP oleh Admin (Berbasis Wawancara Pakar)
 
-**User Story:** Sebagai Pelaku Usaha, saya ingin membandingkan tingkat kepentingan tiap pasang kriteria menggunakan skala 1–9, sehingga sistem tahu prioritas saya secara personal, bukan asumsi generik.
+**User Story:** Sebagai Administrator/Peneliti, saya ingin memasukkan matriks perbandingan berpasangan hasil wawancara pakar untuk tiap jenis usaha, sehingga bobot kriteria bersumber dari penilaian ahli yang dapat dipertanggungjawabkan, bukan input pengguna acak.
+
+**Latar keputusan desain:** Penilaian perbandingan berpasangan (skala Saaty 1–9) menuntut pemahaman domain terhadap trade-off antar-kriteria. Dalam penelitian ini bobot diperoleh melalui **wawancara pemangku kepentingan/pakar** terkait tiap jenis usaha; hasilnya diagregasi (mis. rata-rata geometrik antar-responden, dihitung di luar sistem sebagai lampiran) menjadi satu matriks konsensus, lalu diinput admin. Karena itu form matriks berada di **panel admin** (`admin/ahp-config`), bukan di sisi pelaku usaha.
 
 **Kriteria Penerimaan:**
-- [ ] Form menampilkan seluruh pasangan kriteria yang perlu dibandingkan (untuk 4 kriteria → 6 pasangan perbandingan unik).
+- [ ] Panel admin menampilkan seluruh pasangan kriteria yang perlu dibandingkan (untuk 4 kriteria → 6 pasangan perbandingan unik).
 - [ ] Input menggunakan skala Saaty 1–9 beserta nilai kebalikan (1/3, 1/5, dst.) sesuai Tabel Skala Preferensi AHP — lihat PRD-03.
-- [ ] Setiap slider/pilihan memakai bahasa yang jelas dari sudut pengguna (nama kriteria asli, bukan "Kriteria A vs Kriteria B").
-- [ ] Pengguna bisa mengubah input sebelum submit final.
-- [ ] Data hasil perbandingan disimpan terpisah per sesi/pengguna, tertaut ke jenis usaha yang dipilih pada M2.
+- [ ] Setiap pilihan memakai nama kriteria asli yang jelas (mis. "Sewa vs Kepadatan Penduduk"), bukan "Kriteria A vs Kriteria B".
+- [ ] Matriks & bobot hasil disimpan **terpisah per jenis usaha**; menyimpan ulang menimpa konfigurasi jenis usaha tersebut.
+- [ ] Admin dapat mengubah nilai perbandingan dan menyimpan ulang kapan saja tanpa deploy ulang.
 
 **Prioritas:** Must Have.
+
+**Jejak bukti wawancara (rekomendasi untuk skripsi):** Sistem menyimpan matriks konsensus final. Matriks per responden dan proses agregasinya didokumentasikan sebagai **lampiran skripsi** (mis. tabel per narasumber + rata-rata geometrik). Bila waktu memungkinkan, penambahan tabel responden + fitur agregasi di sistem menjadi nilai tambah (opsional, Should Have).
 
 ---
 
 ## M4. Perhitungan & Validasi Konsistensi AHP
 
-**User Story:** Sebagai Pelaku Usaha, saya ingin sistem memberi tahu jika penilaian saya tidak konsisten, sehingga saya bisa memperbaikinya sebelum melihat hasil yang bias.
+**User Story:** Sebagai Administrator/Peneliti, saya ingin sistem memberi tahu jika matriks perbandingan hasil wawancara tidak konsisten, sehingga saya bisa memperbaikinya sebelum bobot dipakai untuk menghitung hasil yang bias.
 
 **Kriteria Penerimaan:**
 - [ ] Sistem menghitung normalisasi matriks, eigenvector (bobot prioritas), λmax, CI, dan CR secara otomatis di backend (lihat rumus & contoh di PRD-03).
-- [ ] Jika **CR ≥ 0,1**: sistem menampilkan pesan error yang menjelaskan (bukan hanya angka CR mentah) dan mengarahkan pengguna meninjau ulang pasangan perbandingan yang paling mencolok, lalu memblokir lanjut ke hasil.
-- [ ] Jika **CR < 0,1**: sistem lanjut menghitung skor akhir tiap alternatif lokasi dan menyimpan bobot kriteria hasil sesi ini.
-- [ ] Hasil perhitungan backend (bobot & CR) harus 100% identik dengan perhitungan manual di Excel untuk data input yang sama (kriteria uji, lihat PRD-04).
+- [ ] Jika **CR ≥ 0,1**: sistem menolak menyimpan bobot dan menampilkan pesan yang menjelaskan (memuat nilai CR), meminta admin meninjau ulang nilai perbandingan.
+- [ ] Jika **CR < 0,1**: sistem menyimpan bobot kriteria untuk jenis usaha terkait, siap dipakai pada perhitungan skor lokasi.
+- [ ] Hasil perhitungan backend (bobot & CR) harus konsisten dengan perhitungan manual di Excel untuk data input yang sama (kriteria uji, lihat PRD-04 & catatan golden test di PRD-03 §3.3).
 
 **Prioritas:** Must Have — ini jantung validitas ilmiah sistem.
 
@@ -138,7 +154,7 @@ Lihat PRD-01 untuk konteks & scope. Modul di bawah mengikuti alur nyata pengguna
 |---|---|---|
 | M1 Manajemen Data Master | Must | Prasyarat data untuk semua modul lain |
 | M2 Pemilihan Jenis Usaha | Must | Trigger yang menentukan seluruh alur berikutnya |
-| M3 Input Matriks AHP | Must | Inti metode penelitian |
+| M3' Input Matriks AHP (Admin, wawancara pakar) | Must | Inti metode penelitian |
 | M4 Perhitungan & Validasi CR | Must | Menjamin validitas ilmiah hasil |
 | M5 Visualisasi Peta | Must | Nilai jual utama Web-GIS |
 | M6 Buffer Zone | Should | Nilai tambah analisis spasial |
